@@ -24,9 +24,15 @@
 #include <linux/module.h>
 #include <linux/kernel.h>
 #include <linux/init.h>
+#include <linux/version.h>
 #include <linux/timer.h>
 #include <linux/workqueue.h>
 #include <linux/miscdevice.h>
+
+/* 兼容 6.12+：del_timer 更名 timer_delete */
+#if LINUX_VERSION_CODE < KERNEL_VERSION(6, 12, 0)
+#define timer_delete(t) del_timer(t)
+#endif
 #include <linux/fs.h>
 #include <linux/uaccess.h>
 #include <linux/mutex.h>
@@ -196,7 +202,7 @@ static int __init vs_init(void)
 
 static void __exit vs_exit(void)
 {
-	del_timer(&sample_timer);
+	timer_delete(&sample_timer);
 	cancel_work_sync(&sample_work);
 	misc_deregister(&vs_miscdev);
 	kfree(ring);

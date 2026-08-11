@@ -2,8 +2,14 @@
 #include <linux/init.h>
 #include <linux/module.h>
 #include <linux/kernel.h>
+#include <linux/version.h>
 #include <linux/timer.h>
 #include <linux/workqueue.h>
+
+/* 兼容 6.12+：del_timer 更名 timer_delete */
+#if LINUX_VERSION_CODE < KERNEL_VERSION(6, 12, 0)
+#define timer_delete(t) del_timer(t)
+#endif
 
 static struct timer_list sensor_timer;
 static struct work_struct sensor_work;
@@ -34,7 +40,7 @@ static int __init sensor_init(void)
 
 static void __exit sensor_exit(void)
 {
-	del_timer(&sensor_timer);
+	timer_delete(&sensor_timer);
 	flush_work(&sensor_work);
 	pr_info("sensor: 卸载\n");
 }
