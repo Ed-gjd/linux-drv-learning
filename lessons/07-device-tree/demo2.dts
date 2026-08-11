@@ -1,0 +1,13 @@
+/dts-v1/;
+
+/ {
+	model = "playground-demo";
+	compatible = "my-company,my-board";
+	#address-cells = <1>;
+	#size-cells = <1>;
+
+	hellodev@1000 {
+		compatible = "my-company,hellodev";
+		reg = <0x1000 0x100>;
+	};
+};

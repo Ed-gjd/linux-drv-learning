@@ -1,0 +1,49 @@
+name: build
+
+# 每次 push / PR 触发：全量编译所有内核模块 + checkpatch 门禁 + 设备树校验
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install toolchain and kernel headers
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential device-tree-compiler
+          sudo apt-get install -y linux-headers-$(uname -r) \
+            || sudo apt-get install -y linux-headers-generic
+          uname -r
+
+      - name: Build all kernel modules
+        run: |
+          make
+
+      - name: Device tree syntax check
+        run: |
+          dtc -I dts -O dtb -o /tmp/demo2.dtb lessons/07-device-tree/demo2.dts
+          echo "dts compile OK"
+
+      - name: checkpatch gate (0 ERROR required)
+        run: |
+          curl -fsSL https://raw.githubusercontent.com/torvalds/linux/v6.8/scripts/checkpatch.pl -o checkpatch.pl
+          curl -fsSL https://raw.githubusercontent.com/torvalds/linux/v6.8/scripts/spelling.txt -o spelling.txt
+          chmod +x checkpatch.pl
+          failed=0
+          for f in $(find . -name '*.c' ! -name '*.mod.c'); do
+            if ./checkpatch.pl --no-tree --file "$f" 2>&1 | grep -q 'ERROR:'; then
+              echo "=== ERROR in $f ==="
+              ./checkpatch.pl --no-tree --file "$f" | grep 'ERROR:'
+              failed=1
+            fi
+          done
+          if [ "$failed" -ne 0 ]; then
+            echo "checkpatch failed: some files have ERRORs"
+            exit 1
+          fi
+          echo "checkpatch: all source files 0 ERROR ✔"
