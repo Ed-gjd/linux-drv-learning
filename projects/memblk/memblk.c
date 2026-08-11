@@ -7,9 +7,9 @@
  * 6.8 正确的 blk-mq API 重写，全部编译/运行验证过：
  *
  *   1. blk_mq_alloc_tag_set 注册多队列标签集
- *   2. blk_alloc_disk(NUMA_NO_NODE) —— 6.8 单参版，内部自动创建 request_queue
- *   3. device_add_disk(NULL, gd, NULL) —— 6.8 三参版
- *   4. 卸载：del_gendisk → blk_mq_destroy_queue(gd->queue) → put_disk → free_tag_set
+ *   2. blk_mq_alloc_disk(&tag, NULL) —— 一步创建 request_queue + gendisk
+ *   3. device_add_disk(NULL, gd, NULL) —— 三参签名
+ *   4. 卸载：del_gendisk → put_disk（disk 自含 queue，随 put_disk 释放）
  *
  * 用法：
  *   insmod memblk.ko                       # 默认 4MB 虚拟盘
@@ -21,9 +21,17 @@
 #include <linux/module.h>
 #include <linux/kernel.h>
 #include <linux/init.h>
+#include <linux/version.h>
 #include <linux/blk-mq.h>
 #include <linux/blkdev.h>
 #include <linux/vmalloc.h>
+
+/* 6.9 起 blk_mq_alloc_disk 增加 queue_limits 参数（6.8 及更早为 2 参） */
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 9, 0)
+#define MB_ALLOC_DISK(tag, qdata) blk_mq_alloc_disk(tag, NULL, qdata)
+#else
+#define MB_ALLOC_DISK(tag, qdata) blk_mq_alloc_disk(tag, qdata)
+#endif
 
 #define MEMBLK_MAX_KB (128 * 1024)	/* 上限 128MB */
 
@@ -109,7 +117,7 @@ static int __init memblk_init(void)
 	if (ret)
 		goto err_free_data;
 
-	memblk_gd = blk_mq_alloc_disk(&memblk_tag, NULL);	/* 用 tag_set 建 queue+disk */
+	memblk_gd = MB_ALLOC_DISK(&memblk_tag, NULL);	/* 用 tag_set 建 queue+disk */
 	if (IS_ERR(memblk_gd)) {
 		ret = PTR_ERR(memblk_gd);
 		goto err_free_tag;

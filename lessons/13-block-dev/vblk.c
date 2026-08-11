@@ -15,9 +15,17 @@
 #include <linux/init.h>
 #include <linux/module.h>
 #include <linux/kernel.h>
+#include <linux/version.h>
 #include <linux/blk-mq.h>
 #include <linux/blkdev.h>
 #include <linux/vmalloc.h>
+
+/* 6.9 起 blk_mq_alloc_disk 增加 queue_limits 参数（6.8 及更早为 2 参） */
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 9, 0)
+#define MB_ALLOC_DISK(tag, qdata) blk_mq_alloc_disk(tag, NULL, qdata)
+#else
+#define MB_ALLOC_DISK(tag, qdata) blk_mq_alloc_disk(tag, qdata)
+#endif
 
 #define VBLK_SECTORS 2048
 #define VBLK_SIZE   (VBLK_SECTORS << 9)
@@ -96,7 +104,7 @@ static int __init vblk_init(void)
 	if (ret)
 		goto err_free_tag;
 
-	vblk_gd = blk_mq_alloc_disk(vblk_tag, NULL);	/* 6.8 一步建 queue+disk */
+	vblk_gd = MB_ALLOC_DISK(vblk_tag, NULL);	/* 用 tag_set 建 queue+disk */
 	if (IS_ERR(vblk_gd)) {
 		ret = PTR_ERR(vblk_gd);
 		goto err_free_tag_set;
